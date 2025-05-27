@@ -1,0 +1,27 @@
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: Black
+        entry: poetry run black docling_ibm_models
+        pass_filenames: false
+        language: system
+        files: '\.py$'
+      - id: isort
+        name: isort
+        entry: poetry run isort docling_ibm_models
+        pass_filenames: false
+        language: system
+        files: '\.py$'
+      - id: poetry
+        name: Poetry check
+        entry: poetry lock --check
+        pass_filenames: false
+        language: system
+      - id: system
+        name: MyPy
+        entry: poetry run mypy docling_ibm_models
+        pass_filenames: false
+        language: system
+        files: '\.py$'

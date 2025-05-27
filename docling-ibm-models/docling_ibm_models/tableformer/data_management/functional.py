@@ -7,7 +7,7 @@ from collections.abc import Iterable, Sequence
 
 import cv2
 import numpy as np
-import torch
+# import torch
 from torchvision.transforms import functional
 
 cv2.setNumThreads(0)

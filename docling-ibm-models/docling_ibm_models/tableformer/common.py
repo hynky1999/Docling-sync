@@ -7,7 +7,7 @@ import json
 import logging
 import os
 
-import torch
+# import torch
 
 import docling_ibm_models.tableformer.settings as s
 from docling_ibm_models.tableformer.models.common.base_model import BaseModel

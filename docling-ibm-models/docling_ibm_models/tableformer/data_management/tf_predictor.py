@@ -11,8 +11,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
-from safetensors.torch import load_model
+# import torch
+# from safetensors.torch import load_model
 
 import docling_ibm_models.tableformer.common as c
 import docling_ibm_models.tableformer.data_management.transforms as T

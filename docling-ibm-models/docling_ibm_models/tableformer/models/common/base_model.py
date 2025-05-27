@@ -9,7 +9,7 @@ import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import torch
+# import torch
 
 import docling_ibm_models.tableformer.settings as s
 

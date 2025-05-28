@@ -40,7 +40,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     # Flag
-    parser.add_argument("--samples", default=10)
+    parser.add_argument("--samples", default=10, type=int)
     args = parser.parse_args()
 
     pipeline = create_pipeline(args.samples)

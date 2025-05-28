@@ -261,12 +261,12 @@ class StandardPdfPipeline(PaginatedPipeline):
                 conv_res.confidence.table_score = float(
                     np.nanmean(
                         [c.table_score for c in conv_res.confidence.pages.values()]
-                    )
+                    ) if len(conv_res.confidence.pages) > 0 else np.nan
                 )
                 conv_res.confidence.ocr_score = float(
                     np.nanmean(
                         [c.ocr_score for c in conv_res.confidence.pages.values()]
-                    )
+                    ) if len(conv_res.confidence.pages) > 0 else np.nan
                 )
 
         return conv_res

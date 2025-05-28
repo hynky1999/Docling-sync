@@ -127,7 +127,11 @@ class LayoutPredictor:
             _vino_model = vino_with_preproc.build()
 
         self._preprocess_in_vino = preprocess_in_vino
-        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", "ENABLE_CPU_PINNING": True})
+        threads = os.environ.get("OMP_NUM_THREADS", -1)
+        add_config = {}
+        if threads != -1:
+            add_config["INFERENCE_NUM_THREADS"] = threads
+        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", **add_config})
         
         
     def predict(self, orig_img: Union[Image.Image, np.ndarray]) -> Iterable[dict]:

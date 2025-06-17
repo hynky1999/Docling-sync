@@ -90,7 +90,7 @@ class LayoutPredictor:
         processor_config = os.path.join(artifact_path, "preprocessor_config.json")
         model_config = os.path.join(artifact_path, "config.json")
         self._image_processor = RTDetrImageProcessor.from_json_file(processor_config)
-        self.init_vino_model("./models/v2-quant.xml", False)
+        self.init_vino_model("./Docling-sync/models/v2-quant.xml", False)
 
         _log.debug("LayoutPredictor settings: {}".format(self.info()))
 

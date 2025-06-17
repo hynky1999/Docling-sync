@@ -347,6 +347,7 @@ class PdfBackend(str, Enum):
     DLPARSE_V1 = "dlparse_v1"
     DLPARSE_V2 = "dlparse_v2"
     DLPARSE_V4 = "dlparse_v4"
+    PYMUPDF = "pymupdf"
 
 
 # Define an enum for the ocr engines

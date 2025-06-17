@@ -20,6 +20,7 @@ from rich.console import Console
 from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
 from docling.backend.docling_parse_v2_backend import DoclingParseV2DocumentBackend
 from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
+from docling.backend.pymupdf_backend import PyMuPdfDocumentBackend
 from docling.backend.pdf_backend import PdfDocumentBackend
 from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 from docling.datamodel.base_models import (
@@ -506,7 +507,7 @@ def convert(  # noqa: C901
                 accelerator_options=accelerator_options,
                 do_ocr=ocr,
                 ocr_options=ocr_options,
-                do_table_structure=True,
+                do_table_structure=False,
                 do_code_enrichment=enrich_code,
                 do_formula_enrichment=enrich_formula,
                 do_picture_description=enrich_picture_description,
@@ -534,6 +535,8 @@ def convert(  # noqa: C901
                 backend = DoclingParseV4DocumentBackend  # type: ignore
             elif pdf_backend == PdfBackend.PYPDFIUM2:
                 backend = PyPdfiumDocumentBackend  # type: ignore
+            elif pdf_backend == PdfBackend.PYMUPDF:
+                backend = PyMuPdfDocumentBackend  # type: ignore
             else:
                 raise RuntimeError(f"Unexpected PDF backend type {pdf_backend}")
 

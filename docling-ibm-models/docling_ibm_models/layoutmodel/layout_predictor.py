@@ -131,7 +131,10 @@ class LayoutPredictor:
         add_config = {}
         if threads != -1:
             add_config["INFERENCE_NUM_THREADS"] = threads
-        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", **add_config})
+        cpu_runtime_cache_capacity = os.environ.get("CPU_RUNTIME_CACHE_CAPACITY", 3)
+        # This setting seems to work well (doesn't introduce slowdowns) while keeping memory under 2GB
+        os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
+        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", "CPU_RUNTIME_CACHE_CAPACITY": cpu_runtime_cache_capacity, **add_config})
         
         
     def predict(self, orig_img: Union[Image.Image, np.ndarray]) -> Iterable[dict]:
@@ -168,7 +171,8 @@ class LayoutPredictor:
                 "pixel_values": np.array(page_img)[np.newaxis, ...],
             }
         target_sizes = np.array([page_img.size[::-1]])
-        outputs = self._model((inputs["pixel_values"], target_sizes), share_outputs=True)
+        outputs = self._model((inputs["pixel_values"], target_sizes), share_inputs=True, share_outputs=True)
+
         results = post_process_object_detection_onnx(outputs[0], outputs[1], outputs[2], self._threshold)
 
         w, h = page_img.size

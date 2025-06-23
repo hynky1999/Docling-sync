@@ -21,7 +21,8 @@ from docling_core.types.doc.page import (
     TextCell,
 )
 
-
+import pymupdf
+pymupdf.set_messages(pylogging=True)
 
 _log = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class PyMuPdfPageBackend(PdfPageBackend):
             bbox = bbox.to_top_left_origin(self.get_size().height)
 
         rect = fitz.Rect(*bbox.as_tuple())
-        text_piece = self._fpage.get_text("text", clip=rect)
+        text_piece = self._fpage.get_text("text", clip=rect, flags=fitz.TEXTFLAGS_DICT & ~fitz.TEXT_CID_FOR_UNKNOWN_UNICODE)
 
         return text_piece
 

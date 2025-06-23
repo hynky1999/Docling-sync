@@ -1,4 +1,5 @@
 import logging
+import math
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -12,9 +13,99 @@ from pymupdf import Page as PyMuPDFPage
 
 from docling.backend.pdf_backend import PdfDocumentBackend, PdfPageBackend
 from docling.datamodel.document import InputDocument
+from docling_core.types.doc.page import (
+    BoundingRectangle,
+    PdfPageBoundaryType,
+    PdfPageGeometry,
+    SegmentedPdfPage,
+    TextCell,
+)
+
+
 
 _log = logging.getLogger(__name__)
 
+def get_pdf_page_geometry(
+    ppage: fitz.Page,
+    angle: float = 0.0,
+    boundary_type: PdfPageBoundaryType = PdfPageBoundaryType.CROP_BOX,
+) -> PdfPageGeometry:
+    """
+    Create PdfPageGeometry from a pypdfium2 PdfPage object.
+
+    Args:
+        ppage: pypdfium2 PdfPage object
+        angle: Page rotation angle in degrees (default: 0.0)
+        boundary_type: The boundary type for the page (default: CROP_BOX)
+
+    Returns:
+        PdfPageGeometry with all the different bounding boxes properly set
+    """
+    # Get the main bounding box (intersection of crop_box and media_box)
+    bbox = BoundingBox.from_tuple((ppage.rect.x0, ppage.rect.y0, ppage.rect.x1, ppage.rect.y1), CoordOrigin.TOPLEFT)
+
+    # Get all the different page boxes from pypdfium2
+    media_box = BoundingBox.from_tuple((ppage.mediabox.x0, ppage.mediabox.y0, ppage.mediabox.x1, ppage.mediabox.y1), CoordOrigin.TOPLEFT)
+    crop_box = BoundingBox.from_tuple((ppage.cropbox.x0, ppage.cropbox.y0, ppage.cropbox.x1, ppage.cropbox.y1), CoordOrigin.TOPLEFT)
+    art_box = BoundingBox.from_tuple((ppage.artbox.x0, ppage.artbox.y0, ppage.artbox.x1, ppage.artbox.y1), CoordOrigin.TOPLEFT)
+    bleed_box = BoundingBox.from_tuple((ppage.bleedbox.x0, ppage.bleedbox.y0, ppage.bleedbox.x1, ppage.bleedbox.y1), CoordOrigin.TOPLEFT)
+    trim_box = BoundingBox.from_tuple((ppage.trimbox.x0, ppage.trimbox.y0, ppage.trimbox.x1, ppage.trimbox.y1), CoordOrigin.TOPLEFT)
+
+    # Convert to BoundingBox objects using existing from_tuple method
+    # pypdfium2 returns (x0, y0, x1, y1) in PDF coordinate system (bottom-left origin)
+    # Use bbox as fallback when specific box types are not defined
+
+    return PdfPageGeometry(
+        angle=angle,
+        rect=BoundingRectangle.from_bounding_box(bbox),
+        boundary_type=boundary_type,
+        art_bbox=art_box,
+        bleed_bbox=bleed_box,
+        crop_bbox=crop_box,
+        media_bbox=media_box,
+        trim_bbox=trim_box,
+    )
+
+
+def blocks_to_cells(blocks: list[dict], page_height:float, ignore_empty: bool = False):
+    cell_counter = 0
+    cells = []
+    for b in blocks:
+        for l in b.get("lines", []):  # noqa: E741
+            for s in l["spans"]:
+                text = s["text"]
+                bbox = s["bbox"]
+                x0, y0, x1, y1 = bbox
+                cos, sin = l.get("dir", [1, 0])
+                line_angle = math.degrees(math.atan2(sin, cos))
+
+                if ignore_empty and (abs(x1 - x0) == 0 or abs(y1 - y0) == 0):
+                    continue
+
+                cells.append(
+                    TextCell(
+                        index=cell_counter,
+                        text=text,
+                        orig=text,
+                        from_ocr=False,
+                        rect=BoundingRectangle.from_bounding_box(
+                            BoundingBox(
+                                l=x0,
+                                b=y0,
+                                r=x1,
+                                t=y1,
+                            )
+                        ),
+                        info={
+                            **s,
+                            "line_bbox": BoundingBox(l=x0, t=y0, r=x1, b=y1, coord_origin=CoordOrigin.TOPLEFT).to_bottom_left_origin(page_height),
+                            "line_angle": line_angle
+                        }
+                    )
+                )
+                cell_counter += 1
+
+    return cells
 
 class PyMuPdfPageBackend(PdfPageBackend):
     def __init__(self, doc_obj: fitz.Document, document_hash: str, page_no: int):
@@ -43,7 +134,24 @@ class PyMuPdfPageBackend(PdfPageBackend):
         return text_piece
 
     def get_segmented_page(self) -> Optional[SegmentedPdfPage]:
-        return None
+        if not self.valid:
+            return None
+
+        text_cells = self.get_text_cells()
+
+        # Get the PDF page geometry from pypdfium2
+        dimension = get_pdf_page_geometry(self._fpage)
+
+        # Create SegmentedPdfPage
+        return SegmentedPdfPage(
+            dimension=dimension,
+            textline_cells=text_cells,
+            char_cells=[],
+            word_cells=[],
+            has_textlines=len(text_cells) > 0,
+            has_words=False,
+            has_chars=False,
+        )
 
     def get_text_cells(self) -> Iterable[TextCell]:
         cells = []
@@ -51,37 +159,8 @@ class PyMuPdfPageBackend(PdfPageBackend):
         if not self.valid:
             return cells
 
-        cell_counter = 0
-
-        blocks = self._fpage.get_text(
-            "dict"  # , flags=fitz.TEXTFLAGS_DICT | ~fitz.TEXT_CID_FOR_UNKNOWN_UNICODE #&
-        )["blocks"]
-        for b in blocks:
-            for l in b.get("lines", []):  # noqa: E741
-                for s in l["spans"]:
-                    text = s["text"]
-                    bbox = s["bbox"]
-                    x0, y0, x1, y1 = bbox
-
-                    cells.append(
-                        TextCell(
-                            index=cell_counter,
-                            text=text,
-                            orig=text,
-                            from_ocr=False,
-                            rect=BoundingRectangle.from_bounding_box(
-                                BoundingBox(
-                                    l=x0,
-                                    b=y0,
-                                    r=x1,
-                                    t=y1,
-                                )
-                            ),
-                        )
-                    )
-                    cell_counter += 1
-
-        return cells
+        blocks = self._fpage.get_text("dict", flags=fitz.TEXTFLAGS_DICT & ~fitz.TEXT_CID_FOR_UNKNOWN_UNICODE)["blocks"]
+        return blocks_to_cells(blocks, page_height=self.get_size().height)
 
     def get_bitmap_rects(self, scale: int = 1) -> Iterable["BoundingBox"]:
         AREA_THRESHOLD = 32 * 32

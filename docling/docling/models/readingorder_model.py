@@ -28,6 +28,7 @@ from docling.datamodel.base_models import (
 )
 from docling.datamodel.document import ConversionResult
 from docling.utils.profiling import ProfilingScope, TimeRecorder
+from docling.models.page_assemble_model import sanitize_cells
 
 
 class ReadingOrderOptions(BaseModel):
@@ -79,16 +80,12 @@ class ReadingOrderModel:
             c_bbox = child.bbox.to_bottom_left_origin(
                 doc.pages[element.page_no + 1].size.height
             )
-            c_text = " ".join(
-                [
-                    cell.text.replace("\x02", "-").strip()
-                    for cell in child.cells
-                    if len(cell.text.strip()) > 0
-                ]
-            )
+            c_text, char_width, last_line_bbox = sanitize_cells(child.cells)
 
             c_prov = ProvenanceItem(
-                page_no=element.page_no + 1, charspan=(0, len(c_text)), bbox=c_bbox
+                page_no=element.page_no + 1, charspan=(0, len(c_text)), bbox=c_bbox, 
+                media_char_width=char_width,
+                last_line_bbox=last_line_bbox,
             )
             if c_label == DocItemLabel.LIST_ITEM:
                 # TODO: Infer if this is a numbered or a bullet list item
@@ -334,12 +331,12 @@ class ReadingOrderModel:
             "Labels of merged elements must match."
         )
         prov = ProvenanceItem(
-            page_no=element.page_no + 1,
+            page_no=merged_elem.page_no + 1,
             charspan=(
                 len(new_item.text) + 1,
                 len(new_item.text) + 1 + len(merged_elem.text),
             ),
-            bbox=element.cluster.bbox.to_bottom_left_origin(page_height),
+            bbox=merged_elem.cluster.bbox.to_bottom_left_origin(page_height),
         )
         new_item.text += f" {merged_elem.text}"
         new_item.orig += f" {merged_elem.text}"  # TODO: This is incomplete, we don't have the `orig` field of the merged element.

@@ -152,6 +152,7 @@ class BasePageElement(BaseModel):
     page_no: int
     cluster: Cluster
     text: Optional[str] = None
+    media_char_width: Optional[float] = None
 
 
 class LayoutPrediction(BaseModel):
@@ -181,6 +182,8 @@ class TableStructurePrediction(BaseModel):
 
 class TextElement(BasePageElement):
     text: str
+    last_line_bbox: Optional[BoundingBox] = None
+
 
 
 class FigureElement(BasePageElement):

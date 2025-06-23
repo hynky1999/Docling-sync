@@ -10,7 +10,6 @@ from typing import Set, Union
 import numpy as np
 from PIL import Image
 
-from transformers import RTDetrImageProcessor
 _log = logging.getLogger(__name__)
 
 def post_process_object_detection_onnx(scores, labels, boxes, threshold):
@@ -87,10 +86,9 @@ class LayoutPredictor:
             raise FileNotFoundError("Missing safe tensors file: {}".format(self._st_fn))
 
         # Load model and move to device
-        processor_config = os.path.join(artifact_path, "preprocessor_config.json")
-        model_config = os.path.join(artifact_path, "config.json")
-        self._image_processor = RTDetrImageProcessor.from_json_file(processor_config)
-        self.init_vino_model("./Docling-sync/models/v2-quant.xml", False)
+
+        path = os.environ["LAYOUT_VINO_PATH"]
+        self.init_vino_model(path, True)
 
         _log.debug("LayoutPredictor settings: {}".format(self.info()))
 
@@ -129,7 +127,11 @@ class LayoutPredictor:
             _vino_model = vino_with_preproc.build()
 
         self._preprocess_in_vino = preprocess_in_vino
-        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", "ENABLE_CPU_PINNING": True})
+        threads = os.environ.get("OMP_NUM_THREADS", -1)
+        add_config = {}
+        if threads != -1:
+            add_config["INFERENCE_NUM_THREADS"] = threads
+        self._model = ov.compile_model(_vino_model, device_name="CPU", config={"PERFORMANCE_HINT": "LATENCY", **add_config})
         
         
     def predict(self, orig_img: Union[Image.Image, np.ndarray]) -> Iterable[dict]:
@@ -160,11 +162,7 @@ class LayoutPredictor:
 
         resize = {"height": self._image_size, "width": self._image_size}
         if not self._preprocess_in_vino:
-            inputs = self._image_processor(
-                images=page_img,
-                return_tensors="np",
-                size=resize,
-            )
+            raise NotImplementedError("Preprocessing without VINO is not implemented")
         else:
             inputs = {
                 "pixel_values": np.array(page_img)[np.newaxis, ...],

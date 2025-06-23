@@ -8,7 +8,7 @@ import collections
 import numbers
 import random
 
-import torch
+# import torch
 
 from docling_ibm_models.tableformer.data_management import functional as F
 
